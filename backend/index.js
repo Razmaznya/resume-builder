@@ -1,5 +1,6 @@
 require('dotenv').config();
-
+const crypto = require('crypto'); // для генерации токена
+const nodemailer = require('nodemailer');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -158,6 +159,129 @@ app.get('/api/auth/me', async (req, res) => {
 app.post('/api/auth/logout', (req, res) => {
   res.clearCookie('token', COOKIE_OPTS);
   res.json({ message: 'Выход выполнен' });
+});
+
+
+// 🔐 ЗАПРОС НА СБРОС ПАРОЛЯ
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  }
+});
+
+// Проверка подключения (опционально, для отладки)
+transporter.verify((error, success) => {
+  if (error) {
+    console.error('❌ Ошибка подключения к почте:', error);
+  } else {
+    console.log('✅ Готов к отправке писем');
+  }
+});
+
+// 🔐 ЗАПРОС НА СБРОС ПАРОЛЯ
+// 🔐 ЗАПРОС НА СБРОС ПАРОЛЯ (с отправкой email)
+app.post('/api/auth/forgot-password', async (req, res) => {
+  const { email } = req.body;
+  
+  if (!email) {
+    return res.status(400).json({ error: 'Email обязателен' });
+  }
+
+  try {
+    // Ищем пользователя
+    const result = await pool.query(
+      'SELECT id, email FROM users WHERE email = $1',
+      [email]
+    );
+    const user = result.rows[0];
+
+    // ⚠️ Возвращаем успех даже если пользователь не найден (защита от перебора)
+    if (!user) {
+      return res.json({ message: 'Если такой пользователь существует, инструкции отправлены' });
+    }
+
+    // Генерируем токен
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 час
+
+    // Сохраняем в БД
+    await pool.query(
+      'UPDATE users SET reset_token = $1, reset_token_expires = $2 WHERE id = $3',
+      [resetToken, expires, user.id]
+    );
+
+    // Формируем ссылку
+    const resetLink = `http://localhost:5173/reset-password?token=${resetToken}`;
+
+    // 📧 ОТПРАВЛЯЕМ ПИСЬМО
+    await transporter.sendMail({
+      from: `"ResumeCraft" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: '🔐 Восстановление пароля',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+          <h2 style="color: #7494ec;">ResumeCraft</h2>
+          <p>Здравствуйте!</p>
+          <p>Вы запросили восстановление пароля. Нажмите на кнопку ниже, чтобы создать новый пароль:</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${resetLink}" style="background: #7494ec; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">Сбросить пароль</a>
+          </div>
+          <p>Или скопируйте ссылку:</p>
+          <p style="word-break: break-all; color: #666;">${resetLink}</p>
+          <p style="color: #999; font-size: 14px;">Ссылка действительна 1 час. Если вы не запрашивали сброс, просто проигнорируйте это письмо.</p>
+        </div>
+      `
+    });
+
+    console.log(`✅ Письмо отправлено на ${email}`);
+    res.json({ message: 'Если такой пользователь существует, инструкции отправлены' });
+
+  } catch (err) {
+    console.error('Forgot password error:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// 🔐 УСТАНОВКА НОВОГО ПАРОЛЯ
+app.post('/api/auth/reset-password', async (req, res) => {
+  const { token, newPassword } = req.body;
+
+  if (!token || !newPassword) {
+    return res.status(400).json({ error: 'Токен и новый пароль обязательны' });
+  }
+  if (newPassword.length < 8) {
+    return res.status(400).json({ error: 'Пароль должен содержать минимум 8 символов' });
+  }
+
+  try {
+    // 1. Проверяем токен и срок действия
+    const userResult = await pool.query(
+      'SELECT id FROM users WHERE reset_token = $1 AND reset_token_expires > NOW()',
+      [token]
+    );
+
+    if (!userResult.rows.length) {
+      return res.status(400).json({ error: 'Ссылка недействительна или срок её действия истёк' });
+    }
+
+    const userId = userResult.rows[0].id;
+    const hashed = await bcrypt.hash(newPassword, 10);
+
+    // 2. Обновляем пароль и удаляем токен
+    await pool.query(
+      'UPDATE users SET password_hash = $1, reset_token = NULL, reset_token_expires = NULL WHERE id = $2',
+      [hashed, userId]
+    );
+
+    // 3. Возвращаем JSON-ответ
+    res.json({ message: 'Пароль успешно изменён' });
+
+  } catch (err) {
+    console.error('Reset password error:', err);
+    res.status(500).json({ error: 'Ошибка сервера при сбросе пароля' });
+  }
 });
 
 // 📸 ЗАГРУЗКА АВАТАРА (локально)

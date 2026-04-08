@@ -125,7 +125,7 @@ const Auth = () => {
               <input type="password" placeholder="Пароль" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} required />
               <i className="bx bx-lock-alt"></i>
             </div>
-            <div className="forgot-link"><Link to="/forgot-password">Забыли пароль?</Link></div>
+           <Link to="/forgot-password" className="forgot-link">Забыли пароль?</Link>
             <button type="submit" className="btn" disabled={isLoginLoading}>{isLoginLoading ? 'Отправка...' : 'Войти'}</button>
             <p>или войти через соцсети</p>
             <div className="social-icons">

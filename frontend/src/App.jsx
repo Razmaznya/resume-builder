@@ -7,6 +7,8 @@ import Dashboard from './pages/Dashboard';
 import Editor from './pages/Editor';
 import ForgotPassword from './pages/ForgotPassword';
 import PrivateRoute from './components/PrivateRoute';
+import ResetPassword from './pages/ResetPassword'; // 🔥 Добавь импорт
+
 
 function App() {
   return (
@@ -16,6 +18,10 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
+          // В App.jsx, рядом с /forgot-password:
+          <Route path="/reset-password" element={<ForgotPassword />} /> {/* 🔥 Добавь эту строку */}
+          <Route path="/auth/forgot-password" element={<ForgotPassword />} /> {/* Добавь эту строку */}
+ <Route path="/reset-password" element={<ResetPassword />} /> 
           <Route
             path="/dashboard"
             element={
