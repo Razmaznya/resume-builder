@@ -70,8 +70,15 @@ const requireAuth = async (req, res, next) => {
   if (!token) return res.status(401).json({ error: 'Не авторизован' });
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const userCheck = await pool.query('SELECT id FROM users WHERE id = $1', [decoded.userId]);
+    // 🔥 Добавили проверку is_blocked
+    const userCheck = await pool.query('SELECT id, is_blocked FROM users WHERE id = $1', [decoded.userId]);
     if (!userCheck.rows.length) return res.status(403).json({ error: 'Пользователь не найден' });
+    
+    if (userCheck.rows[0].is_blocked) {
+      res.clearCookie('token', COOKIE_OPTS); // 🔥 Удаляем куки принудительно
+      return res.status(403).json({ error: 'Аккаунт заблокирован' });
+    }
+    
     req.userId = decoded.userId;
     next();
   } catch {
@@ -85,22 +92,23 @@ app.post('/api/auth/register', async (req, res) => {
   if (!username || !email || !password) return res.status(400).json({ error: 'Заполните все поля' });
   try {
     const hashed = await bcrypt.hash(password, 10);
-    // ИСПОЛЬЗУЕМ name ВМЕСТО username И password_hash ВМЕСТО password
     const result = await pool.query(
-      'INSERT INTO users (name, email, password_hash) VALUES ($1, $2, $3) RETURNING id, name, email, created_at',
+      'INSERT INTO users (name, email, password_hash) VALUES ($1, $2, $3) RETURNING id, name, email, role, is_blocked, created_at',
       [username, email, hashed]
     );
     const user = result.rows[0];
     const token = jwt.sign({ userId: user.id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
     res.cookie('token', token, COOKIE_OPTS);
-    // Возвращаем username для совместимости с фронтендом
     res.status(201).json({ 
       user: { 
         id: user.id, 
         username: user.name, 
-        email: user.email
+        email: user.email,
+        role: user.role || 'user',
+        is_blocked: user.is_blocked || false
       } 
     });
+  
   } catch (err) {
     console.error('Register error:', err);
     if (err.code === '23505') return res.status(409).json({ error: 'Email уже зарегистрирован' });
@@ -111,24 +119,34 @@ app.post('/api/auth/register', async (req, res) => {
 app.post('/api/auth/login', async (req, res) => {
   const { username, password } = req.body;
   try {
-    // Ищем по name или email
+    // 🔥 Добавили is_blocked и role в выборку
     const result = await pool.query(
-      'SELECT id, name, email, password_hash, avatar_url FROM users WHERE name = $1 OR email = $1',
+      'SELECT id, name, email, password_hash, avatar_url, is_blocked, role FROM users WHERE name = $1 OR email = $1',
       [username]
     );
     const user = result.rows[0];
+
     if (!user || !(await bcrypt.compare(password, user.password_hash))) {
       return res.status(401).json({ error: 'Неверные учетные данные' });
     }
+
+    // 🔥 ПРОВЕРКА ПЕРЕД ВЫДАЧЕЙ ТОКЕНА
+    if (user.is_blocked) {
+      return res.status(403).json({ error: 'Ваш аккаунт заблокирован. Обратитесь в поддержку.' });
+    }
+
     const token = jwt.sign({ userId: user.id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
     res.cookie('token', token, COOKIE_OPTS);
-    res.json({ 
-      user: { 
-        id: user.id, 
-        username: user.name, 
+
+    res.json({
+      user: {
+        id: user.id,
+        username: user.name,
         email: user.email,
-        avatar_url: user.avatar_url
-      } 
+        avatar_url: user.avatar_url,
+        role: user.role || 'user',
+        is_blocked: user.is_blocked
+      }
     });
   } catch (err) {
     console.error('Login error:', err);
@@ -139,18 +157,22 @@ app.post('/api/auth/login', async (req, res) => {
 app.get('/api/auth/me', async (req, res) => {
   const token = req.cookies.token;
   if (!token) return res.status(401).json({ error: 'Не авторизован' });
-  try {
+ try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const result = await pool.query('SELECT id, name, email, avatar_url FROM users WHERE id = $1', [decoded.userId]);
+    // 🔥 Добавили role, is_blocked
+    const result = await pool.query('SELECT id, name, email, avatar_url, role, is_blocked FROM users WHERE id = $1', [decoded.userId]);
     if (!result.rows.length) return res.status(404).json({ error: 'Пользователь не найден' });
     res.json({ 
       user: { 
         id: result.rows[0].id, 
         username: result.rows[0].name, 
         email: result.rows[0].email,
-        avatar_url: result.rows[0].avatar_url
+        avatar_url: result.rows[0].avatar_url,
+        role: result.rows[0].role || 'user',
+        is_blocked: result.rows[0].is_blocked || false
       } 
     });
+  
   } catch {
     res.status(403).json({ error: 'Токен недействителен' });
   }
@@ -423,6 +445,82 @@ app.delete('/api/resumes/:id', requireAuth, async (req, res) => {
   const result = await pool.query('DELETE FROM resumes WHERE id = $1 AND user_id = $2', [req.params.id, req.userId]);
   if (result.rowCount === 0) return res.status(404).json({ error: 'Резюме не найдено' });
   res.json({ message: 'Удалено' });
+});
+
+// 🔒 Middleware только для админов
+const requireAdmin = async (req, res, next) => {
+  const token = req.cookies.token;
+  if (!token) return res.status(401).json({ error: 'Не авторизован' });
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userCheck = await pool.query('SELECT id, role, is_blocked FROM users WHERE id = $1', [decoded.userId]);
+    if (!userCheck.rows.length) return res.status(403).json({ error: 'Пользователь не найден' });
+    const u = userCheck.rows[0];
+    if (u.role !== 'admin') return res.status(403).json({ error: 'Доступ запрещён' });
+    if (u.is_blocked) return res.status(403).json({ error: 'Аккаунт заблокирован' });
+    req.userId = decoded.userId;
+    next();
+  } catch {
+    res.status(403).json({ error: 'Недействительный токен' });
+  }
+};
+
+// 📊 Статистика
+app.get('/api/admin/stats', requireAdmin, async (req, res) => {
+  try {
+    const usersRes = await pool.query('SELECT COUNT(*) as count FROM users');
+    const resumesRes = await pool.query('SELECT COUNT(*) as count FROM resumes');
+    res.json({
+      totalUsers: parseInt(usersRes.rows[0].count),
+      totalResumes: parseInt(resumesRes.rows[0].count)
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка получения статистики' });
+  }
+});
+
+// 👥 Список пользователей (с поиском)
+app.get('/api/admin/users', requireAdmin, async (req, res) => {
+  try {
+    const search = req.query.search || '';
+    const query = search 
+      ? 'SELECT id, name, email, role, is_blocked, created_at FROM users WHERE name ILIKE $1 OR email ILIKE $1 ORDER BY created_at DESC'
+      : 'SELECT id, name, email, role, is_blocked, created_at FROM users ORDER BY created_at DESC';
+    const result = await pool.query(query, search ? [`%${search}%`] : []);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка получения списка' });
+  }
+});
+
+// 🚫 Блокировка/Разблокировка
+app.put('/api/admin/users/:id/block', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (parseInt(id) === req.userId) return res.status(400).json({ error: 'Нельзя заблокировать себя' });
+    
+    const result = await pool.query(
+      'UPDATE users SET is_blocked = NOT is_blocked WHERE id = $1 RETURNING id, is_blocked',
+      [id]
+    );
+    res.json({ message: result.rows[0].is_blocked ? 'Заблокирован' : 'Разблокирован', isBlocked: result.rows[0].is_blocked });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка обновления статуса' });
+  }
+});
+
+// 🎨 Добавление шаблона
+app.post('/api/admin/templates', requireAdmin, async (req, res) => {
+  try {
+    const { name, description, preview_url, css_class } = req.body;
+    const result = await pool.query(
+      'INSERT INTO templates (name, description, preview_url, css_class) VALUES ($1, $2, $3, $4) RETURNING *',
+      [name, description, preview_url, css_class]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка добавления шаблона' });
+  }
 });
 
 // Запуск сервера

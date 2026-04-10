@@ -815,3 +815,21 @@
     margin-top: 15px;
   }
 }
+
+/* 🔽 Кнопки выпадающего меню Экспорта */
+.export-menu-item {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  border-radius: 4px;
+  font-size: 14px;
+  transition: background 0.2s ease;
+}
+
+.export-menu-item:hover {
+  background: #f3f4f6; /* лёгкая подсветка при наведении */
+}
