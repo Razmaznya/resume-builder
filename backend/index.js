@@ -522,7 +522,32 @@ app.post('/api/admin/templates', requireAdmin, async (req, res) => {
     res.status(500).json({ error: 'Ошибка добавления шаблона' });
   }
 });
+// 🗑️ УДАЛЕНИЕ АККАУНТА
+app.delete('/api/users/account', requireAuth, async (req, res) => {
+  try {
+    // 1. Удаляем резюме (на случай, если в БД нет ON DELETE CASCADE)
+    await pool.query('DELETE FROM resumes WHERE user_id = $1', [req.userId]);
 
+    // 2. Удаляем аватар с диска
+    const userResult = await pool.query('SELECT avatar_url FROM users WHERE id = $1', [req.userId]);
+    const avatarUrl = userResult.rows[0]?.avatar_url;
+    if (avatarUrl && avatarUrl.startsWith('/uploads/avatars/')) {
+      const filename = path.basename(avatarUrl);
+      const filePath = path.join(uploadDir, filename);
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    }
+
+    // 3. Удаляем пользователя из БД
+    await pool.query('DELETE FROM users WHERE id = $1', [req.userId]);
+
+    // 4. Очищаем сессию
+    res.clearCookie('token', COOKIE_OPTS);
+    res.json({ message: 'Аккаунт успешно удалён' });
+  } catch (err) {
+    console.error('Delete account error:', err);
+    res.status(500).json({ error: 'Ошибка при удалении аккаунта' });
+  }
+});
 // Запуск сервера
 const PORT = process.env.PORT || 3001;
 // 🖼️ Раздача загруженных аватаров

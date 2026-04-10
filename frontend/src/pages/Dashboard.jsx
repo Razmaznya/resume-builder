@@ -23,7 +23,8 @@ const Dashboard = () => {
   const [profileError, setProfileError] = useState('');
   const [profileMessage, setProfileMessage] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-
+  const [deleteError, setDeleteError] = useState('');
+const [isDeleting, setIsDeleting] = useState(false);
   // Инициализация формы данными из user
   useEffect(() => {
     if (user) {
@@ -126,7 +127,30 @@ const Dashboard = () => {
       </div>
     );
   }
-
+// 🔥 Удаление аккаунта
+const handleDeleteAccount = async () => {
+  if (!window.confirm('⚠️ Вы уверены? Все данные будут удалены навсегда.')) return;
+  
+  setIsDeleting(true);
+  setDeleteError('');
+  
+  try {
+    const res = await fetch('/api/users/account', {
+      method: 'DELETE',
+      credentials: 'include'
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Ошибка удаления');
+    
+    logout();
+    navigate('/');
+    alert('✅ Аккаунт удалён');
+  } catch (err) {
+    setDeleteError(err.message);
+  } finally {
+    setIsDeleting(false);
+  }
+};
   return (
     <div className="dashboard-container">
       <Header />
@@ -319,6 +343,50 @@ const Dashboard = () => {
                     {isSaving ? 'Сохранение...' : 'Сохранить изменения'}
                   </button>
                 </form>
+                {/* 🔥 Опасная зона — кнопка удаления */}
+{deleteError && <div className="error-message" style={{marginTop: '15px'}}>{deleteError}</div>}
+
+<div style={{ 
+  marginTop: '40px', 
+  paddingTop: '20px', 
+  borderTop: '2px solid #fee2e2' 
+}}>
+  <h3 style={{ 
+    color: '#dc2626', 
+    marginBottom: '8px', 
+    display: 'flex', 
+    alignItems: 'center', 
+    gap: '8px' 
+  }}>
+    ⚠️ Опасная зона
+  </h3>
+  <p style={{ 
+    fontSize: '14px', 
+    color: '#64748b', 
+    marginBottom: '15px', 
+    lineHeight: '1.5' 
+  }}>
+    После удаления аккаунта все ваши данные, резюме и история действий будут <strong>безвозвратно удалены</strong>.
+  </p>
+  <button
+    type="button"
+    onClick={handleDeleteAccount}
+    disabled={isDeleting}
+    className="btn"
+    style={{
+      background: '#fee2e2',
+      color: '#dc2626',
+      border: '1px solid #fecaca',
+      padding: '10px 20px',
+      borderRadius: '8px',
+      cursor: isDeleting ? 'not-allowed' : 'pointer',
+      opacity: isDeleting ? 0.7 : 1,
+      transition: '0.2s'
+    }}
+  >
+    {isDeleting ? '⏳ Удаление...' : '🗑️ Удалить аккаунт'}
+  </button>
+</div>
               </div>
             )}
 
