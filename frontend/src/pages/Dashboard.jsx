@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import './Dashboard.css';
+// 🔥 Добавь этот импорт
+import ResumeList from '../components/ResumeList';
 
 const Dashboard = () => {
   const { user, logout, updateAvatar, removeAvatar } = useAuth();
@@ -401,9 +403,8 @@ const handleDeleteAccount = async () => {
                 <div className="resumes-list">
                   <h2>Мои резюме</h2>
                   <div className="resume-cards">
-                    {/* Здесь будет список резюме из БД */}
-                    <p>Загрузка резюме...</p>
-                  </div>
+        <ResumeList userId={user?.id} /> {/* 🔥 Новый компонент */}
+      </div>
                 </div>
               </div>
             )}

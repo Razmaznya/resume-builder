@@ -51,25 +51,47 @@ const Editor = () => {
     }
   }, [resumeId, setValue]);
 
-  const onSubmit = (data) => {
-    const newResume = {
-      id: resumeId === 'new' ? Date.now().toString() : resumeId,
+ const onSubmit = async (data) => {
+  try {
+    const resumeData = {
       title: data.personal.fullName || 'Без названия',
-      updatedAt: new Date().toISOString().split('T')[0],
       data,
       template: selectedTemplate,
     };
-    const existing = JSON.parse(localStorage.getItem('resumes') || '[]');
-    if (resumeId === 'new') {
-      existing.push(newResume);
+
+    const url = resumeId && resumeId !== 'new' 
+      ? `/api/resumes/${resumeId}` 
+      : '/api/resumes';
+    
+    const method = resumeId && resumeId !== 'new' ? 'PUT' : 'POST';
+
+    const res = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(resumeData),
+    });
+
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || 'Ошибка сохранения');
+
+    // 🔥 Сохраняем и в localStorage для быстрого доступа (опционально)
+    const localResumes = JSON.parse(localStorage.getItem('resumes') || '[]');
+    if (resumeId && resumeId !== 'new') {
+      const idx = localResumes.findIndex(r => r.id === resumeId);
+      if (idx !== -1) localResumes[idx] = { ...result, id: resumeId };
     } else {
-      const index = existing.findIndex(r => r.id === resumeId);
-      if (index !== -1) existing[index] = newResume;
-      else existing.push(newResume);
+      localResumes.push({ ...result, id: result.id || Date.now().toString() });
     }
-    localStorage.setItem('resumes', JSON.stringify(existing));
+    localStorage.setItem('resumes', JSON.stringify(localResumes));
+
+    alert('✅ Резюме сохранено!');
     navigate('/dashboard');
-  };
+  } catch (err) {
+    console.error('Save error:', err);
+    alert(`❌ Не удалось сохранить: ${err.message}`);
+  }
+};
 
   const handleExport = () => {
     const element = document.getElementById('resume-preview');
@@ -218,7 +240,7 @@ const doc = new Document({
               <button onClick={() => setPreviewVisible(!previewVisible)} className="btn btn-outline">
                 <i className="fas fa-eye"></i> {previewVisible ? 'Скрыть превью' : 'Показать превью'}
               </button>
-              <button onClick={handleSubmit(onSubmit)} className="btn btn-primary">Сохранить</button>
+             <button type="submit" className="btn btn-primary">Сохранить</button>
              <div style={{ position: 'relative' }}>
   <button 
     onClick={() => setShowExportMenu(prev => !prev)} 

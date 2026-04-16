@@ -548,6 +548,53 @@ app.delete('/api/users/account', requireAuth, async (req, res) => {
     res.status(500).json({ error: 'Ошибка при удалении аккаунта' });
   }
 });
+
+app.post('/api/resumes', requireAuth, async (req, res) => {
+  try {
+    const { title, data, template } = req.body;
+    const result = await pool.query(
+      `INSERT INTO resumes (user_id, title, data, template) 
+       VALUES ($1, $2, $3, $4) 
+       RETURNING id, title, data, template, updated_at AS "updatedAt"`,
+      [req.userId, title || 'Без названия', data, template || 'modern']
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error('Save resume error:', err);
+    res.status(500).json({ error: 'Ошибка сохранения резюме' });
+  }
+});
+
+app.put('/api/resumes/:id', requireAuth, async (req, res) => {
+  try {
+    const { title, data, template } = req.body;
+    const result = await pool.query(
+      `UPDATE resumes SET title = $1, data = $2, template = $3, updated_at = NOW() 
+       WHERE id = $4 AND user_id = $5 
+       RETURNING id, title, data, template, updated_at AS "updatedAt"`,
+      [title, data, template, req.params.id, req.userId]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'Резюме не найдено' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Update resume error:', err);
+    res.status(500).json({ error: 'Ошибка обновления' });
+  }
+});
+
+app.get('/api/resumes', requireAuth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, title, template, updated_at AS "updatedAt" 
+       FROM resumes WHERE user_id = $1 ORDER BY updated_at DESC`,
+      [req.userId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Get resumes error:', err);
+    res.status(500).json({ error: 'Ошибка загрузки списка' });
+  }
+});
 // Запуск сервера
 const PORT = process.env.PORT || 3001;
 // 🖼️ Раздача загруженных аватаров
