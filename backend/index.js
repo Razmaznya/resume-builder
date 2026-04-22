@@ -608,3 +608,17 @@ app.listen(PORT, async () => {
     console.error('❌ Ошибка подключения к БД:', err.message);
   }
 });
+
+// 📄 ЗАГРУЗКА ОДНОГО РЕЗЮМЕ
+app.get('/api/resumes/:id', requireAuth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, title, data, template, updated_at AS "updatedAt" FROM resumes WHERE id = $1 AND user_id = $2',
+      [req.params.id, req.userId]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'Резюме не найдено' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка загрузки резюме' });
+  }
+});

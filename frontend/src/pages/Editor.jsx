@@ -39,19 +39,35 @@ const Editor = () => {
   const { fields: customFields, append: addCustom, remove: removeCustom } = useFieldArray({ control, name: 'customSections' });
 
   useEffect(() => {
-    if (resumeId && resumeId !== 'new') {
-      const resumes = JSON.parse(localStorage.getItem('resumes') || '[]');
-      const resume = resumes.find(r => r.id === resumeId);
-      if (resume && resume.data) {
+  const loadResume = async () => {
+    // Если это создание нового резюме — ничего не загружаем
+    if (!resumeId || resumeId === 'new') return;
+
+    try {
+      const res = await fetch(`/api/resumes/${resumeId}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Не удалось загрузить резюме');
+      
+      const resume = await res.json();
+      
+      // 🔹 Заполняем форму данными из БД
+      if (resume.data) {
         Object.keys(resume.data).forEach(key => {
           setValue(key, resume.data[key]);
         });
-        if (resume.template) setSelectedTemplate(resume.template);
       }
+      if (resume.template) setSelectedTemplate(resume.template);
+    } catch (err) {
+      console.error('Load error:', err);
+      alert('❌ Ошибка загрузки резюме');
+      navigate('/dashboard');
     }
-  }, [resumeId, setValue]);
+  };
+
+  loadResume();
+}, [resumeId, setValue, navigate]);
 
  const onSubmit = async (data) => {
+  console.log('🚀 onSubmit вызвана! Данные:', data); 
   try {
     const resumeData = {
       title: data.personal.fullName || 'Без названия',
@@ -240,7 +256,7 @@ const doc = new Document({
               <button onClick={() => setPreviewVisible(!previewVisible)} className="btn btn-outline">
                 <i className="fas fa-eye"></i> {previewVisible ? 'Скрыть превью' : 'Показать превью'}
               </button>
-             <button type="submit" className="btn btn-primary">Сохранить</button>
+             
              <div style={{ position: 'relative' }}>
   <button 
     onClick={() => setShowExportMenu(prev => !prev)} 
@@ -417,26 +433,58 @@ const doc = new Document({
 
                 {/* Выбор шаблона */}
                 <section className="form-section">
-                  <h2>Выберите шаблон</h2>
-                  <div className="template-options">
-                    <div className={`template-option ${selectedTemplate === 'modern' ? 'active' : ''}`} onClick={() => setSelectedTemplate('modern')}>
-                      <div className="template-preview modern"></div>
-                      <span>Современный</span>
-                    </div>
-                    <div className={`template-option ${selectedTemplate === 'classic' ? 'active' : ''}`} onClick={() => setSelectedTemplate('classic')}>
-                      <div className="template-preview classic"></div>
-                      <span>Классический</span>
-                    </div>
-                    <div className={`template-option ${selectedTemplate === 'elegant' ? 'active' : ''}`} onClick={() => setSelectedTemplate('elegant')}>
-                      <div className="template-preview elegant"></div>
-                      <span>Элегантный</span>
-                    </div>
-                    <div className={`template-option ${selectedTemplate === 'minimal' ? 'active' : ''}`} onClick={() => setSelectedTemplate('minimal')}>
-                      <div className="template-preview minimal"></div>
-                      <span>Минималистичный</span>
-                    </div>
-                  </div>
-                </section>
+  <h2>Выберите шаблон</h2>
+  <div className="template-options">
+    <div 
+      className={`template-option ${selectedTemplate === 'modern' ? 'active' : ''}`} 
+      onClick={() => setSelectedTemplate('modern')}
+    >
+      <div className="template-preview modern"></div>
+      <span>Современный</span>
+    </div>
+    
+    <div 
+      className={`template-option ${selectedTemplate === 'classic' ? 'active' : ''}`} 
+      onClick={() => setSelectedTemplate('classic')}
+    >
+      <div className="template-preview classic"></div>
+      <span>Классический</span>
+    </div>
+    
+    <div 
+      className={`template-option ${selectedTemplate === 'elegant' ? 'active' : ''}`} 
+      onClick={() => setSelectedTemplate('elegant')}
+    >
+      <div className="template-preview elegant"></div>
+      <span>Элегантный</span>
+    </div>
+    
+    <div 
+      className={`template-option ${selectedTemplate === 'minimal' ? 'active' : ''}`} 
+      onClick={() => setSelectedTemplate('minimal')}
+    >
+      <div className="template-preview minimal"></div>
+      <span>Минималистичный</span>
+    </div>
+    
+    <div 
+      className={`template-option ${selectedTemplate === 'creative' ? 'active' : ''}`} 
+      onClick={() => setSelectedTemplate('creative')}
+    >
+      <div className="template-preview creative"></div>
+      <span>Креативный</span>
+    </div>
+    
+    <div 
+      className={`template-option ${selectedTemplate === 'bold' ? 'active' : ''}`} 
+      onClick={() => setSelectedTemplate('bold')}
+    >
+      <div className="template-preview bold"></div>
+      <span>Смелый</span>
+    </div>
+  </div>
+</section>
+<button type="submit" className="btn btn-primary">Сохранить</button>
               </form>
             </div>
 

@@ -331,6 +331,7 @@ header {
 }
 
 .testimonial-text {
+  width: 85%;
   font-size: 18px;
   font-style: italic;
   margin-bottom: 25px;

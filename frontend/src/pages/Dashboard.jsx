@@ -353,15 +353,7 @@ const handleDeleteAccount = async () => {
   paddingTop: '20px', 
   borderTop: '2px solid #fee2e2' 
 }}>
-  <h3 style={{ 
-    color: '#dc2626', 
-    marginBottom: '8px', 
-    display: 'flex', 
-    alignItems: 'center', 
-    gap: '8px' 
-  }}>
-    ⚠️ Опасная зона
-  </h3>
+
   <p style={{ 
     fontSize: '14px', 
     color: '#64748b', 
@@ -386,7 +378,7 @@ const handleDeleteAccount = async () => {
       transition: '0.2s'
     }}
   >
-    {isDeleting ? '⏳ Удаление...' : '🗑️ Удалить аккаунт'}
+    {isDeleting ? '⏳ Удаление...' : ' Удалить аккаунт'}
   </button>
 </div>
               </div>

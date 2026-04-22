@@ -66,15 +66,15 @@ const TestimonialsSlider = () => {
             <i className="fas fa-chevron-right"></i>
           </div>
 
-          <div className="slider-nav">
-            {testimonials.map((_, idx) => (
-              <div
-                key={idx}
-                className={`slider-dot ${idx === current ? 'active' : ''}`}
-                onClick={() => goTo(idx)}
-              ></div>
-            ))}
-          </div>
+        </div>
+        <div className="slider-nav">
+          {testimonials.map((_, idx) => (
+            <div
+              key={idx}
+              className={`slider-dot ${idx === current ? 'active' : ''}`}
+              onClick={() => goTo(idx)}
+            ></div>
+          ))}
         </div>
       </div>
     </section>

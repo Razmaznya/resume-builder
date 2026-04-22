@@ -127,13 +127,6 @@ const Auth = () => {
             </div>
            <Link to="/forgot-password" className="forgot-link">Забыли пароль?</Link>
             <button type="submit" className="btn" disabled={isLoginLoading}>{isLoginLoading ? 'Отправка...' : 'Войти'}</button>
-            <p>или войти через соцсети</p>
-            <div className="social-icons">
-              <a href="#"><i className="bx bxl-google"></i></a>
-              <a href="#"><i className="bx bxl-facebook"></i></a>
-              <a href="#"><i className="bx bxl-github"></i></a>
-              <a href="#"><i className="bx bxl-linkedin"></i></a>
-            </div>
           </form>
         </div>
 
@@ -156,13 +149,8 @@ const Auth = () => {
               <i className="bx bx-lock-alt"></i>
             </div>
             <button type="submit" className="btn" disabled={isRegLoading}>{isRegLoading ? 'Отправка...' : 'Зарегистрироваться'}</button>
-            <p>или зарегистрироваться через соцсети</p>
-            <div className="social-icons">
-              <a href="#"><i className="bx bxl-google"></i></a>
-              <a href="#"><i className="bx bxl-facebook"></i></a>
-              <a href="#"><i className="bx bxl-github"></i></a>
-              <a href="#"><i className="bx bxl-linkedin"></i></a>
-            </div>
+            
+           
           </form>
         </div>
 

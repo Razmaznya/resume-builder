@@ -8,12 +8,10 @@ const Footer = () => {
               <i className="fas fa-file-alt"></i>
               <span>ResumeCraft</span>
             </div>
-            <p style={{ color: '#cbd5e0', marginBottom: '20px' }}>Помогаем профессионалам находить работу мечты с 2018 года.</p>
+            <p style={{ color: '#cbd5e0', marginBottom: '20px' }}>Помогаем профессионалам находить работу мечты с 2026 года.</p>
             <div className="social-links">
               <a href="#" className="social-icon"><i className="fab fa-vk"></i></a>
               <a href="#" className="social-icon"><i className="fab fa-telegram"></i></a>
-              <a href="#" className="social-icon"><i className="fab fa-youtube"></i></a>
-              <a href="#" className="social-icon"><i className="fab fa-linkedin-in"></i></a>
             </div>
           </div>
           <div className="footer-column">
